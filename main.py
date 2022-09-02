@@ -1,16 +1,11 @@
 from datetime import datetime, timedelta
-import sys, time, requests, json, schedule, config
+import sys, requests, json, config
 
+#For use on Rasp Pi for execution in terminal, not necessary in IDE
 #sys.path = ['/home/hwstingel/SeniorProject/Airport-StatTrac', '/usr/lib/python39.zip', '/usr/lib/python3.9', '/usr/lib/python3.9/lib-dynload', '/home/hwstingel/.local/lib/python3.9/site-packages', '/usr/local/lib/python3.9/dist-packages', '/usr/lib/python3/dist-packages', '/usr/lib/python3.9/dist-packages']
 
 querystring = {"withLeg":"true","withCancelled":"true","withCodeshared":"true","withCargo":"true","withPrivate":"true","withLocation":"false"}
 headers = {"X-RapidAPI-Key": config.apiKey,"X-RapidAPI-Host": "aerodatabox.p.rapidapi.com"}
-
-#Define Constants
-
-
-
-
 
 
 #Primary Use - Round minute input down to the nearest 15 for cataloging
@@ -29,22 +24,26 @@ def round15(mins):
 
 #Main Execution function
 def logFlights():
-
+    #Define Constants
     airport = config.airportICAO
-
     startTimeList = ['00','08','16']
     toTimeList = ['08','16','00']
-
     today = (datetime.now() - timedelta(config.daysAgo-1)).strftime('%Y-%m-%d')
     yesterday = (datetime.now() - timedelta(config.daysAgo)).strftime('%Y-%m-%d')
 
+    #Define storage Variable for Data
     cancDep = 0
     cancArr = 0
-    
+    depSched = 0
+    arrSched = 0
+    fullListDep = []
+    fullListArr = []
     aircraftListDep = {"Boeing":0,"Airbus":0,"Canadair Regional":0,"Embraer":0,"Other":0}
     aircraftListArr = aircraftListDep
     airlineListDep = {}
     airlineListArr = {}
+    destination = {}
+    origin = {}
     timeInfoDep = {"dataDate":yesterday,"hours":{"00":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
                                                  "01":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
                                                  "02":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
@@ -70,36 +69,20 @@ def logFlights():
                                                  "22":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
                                                  "23":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
                                                  }}
-
     timeInfoArr = timeInfoDep
 
-
-    depSched = 0
-    arrSched = 0
-
-    #Creates URL list to store various filled out URLs
-    urlList = []
-
-    #Generates URLs to Get data from
-    for x in range(3):
-        if x == 2:
-            urlList.append("https://aerodatabox.p.rapidapi.com/flights/airports/icao/{}/{}T{}:00/{}T{}:00".format(airport,yesterday,startTimeList[x],today,toTimeList[x]))
+    #Generates URLs and fetches data
+    for x in range(len(startTimeList)):
+        if x == len(startTimeList)-1:
+            response = requests.request("GET", ("https://aerodatabox.p.rapidapi.com/flights/airports/icao/{}/{}T{}:00/{}T{}:00".format(airport,yesterday,startTimeList[x],today,toTimeList[x])), headers=headers, params=querystring)
+            fullListDep = fullListDep + response.json()['departures']
+            fullListArr = fullListArr + response.json()['arrivals']
             continue
-        urlList.append("https://aerodatabox.p.rapidapi.com/flights/airports/icao/{}/{}T{}:00/{}T{}:00".format(airport,yesterday,startTimeList[x],yesterday,toTimeList[x]))
-    
-    fullListDep = []
-    fullListArr = []
-
-    # Gets information from ABD and combines into 1 list
-    for each in urlList:
-        response = requests.request("GET", each, headers=headers, params=querystring)
+        response = requests.request("GET", ("https://aerodatabox.p.rapidapi.com/flights/airports/icao/{}/{}T{}:00/{}T{}:00".format(airport,yesterday,startTimeList[x],yesterday,toTimeList[x])), headers=headers, params=querystring)
         fullListDep = fullListDep + response.json()['departures']
-        fullListArr = fullListArr + response.json()['arrivals']
-    
-    
-    
-    
-    
+        fullListArr = fullListArr + response.json()['arrivals']    
+
+    #Sorts and Cleans Data and Transoforms into usable dictionaries
     for each in fullListDep:
 
         if "departure" in each.keys():
@@ -109,7 +92,15 @@ def logFlights():
             timeInfoDep["hours"][schedHour][round15(schedMin)]["scheduled"] += 1
             depSched += 1
         else:continue
-        
+
+        if "arrival" in each.keys():
+            if "airport" in each["arrival"].keys():
+                if "iata" in each["arrival"]["airport"].keys() and "name" in each["arrival"]["airport"].keys():
+                    if "{} / {}".format(each["arrival"]["airport"]["iata"],each["arrival"]["airport"]["name"]) in destination.keys():
+                        destination["{} / {}".format(each["arrival"]["airport"]["iata"],each["arrival"]["airport"]["name"])] += 1
+                    else:
+                        destination["{} / {}".format(each["arrival"]["airport"]["iata"],each["arrival"]["airport"]["name"])] = 1
+                    
 
         
         if "airline" in each.keys():
@@ -145,6 +136,14 @@ def logFlights():
             timeInfoArr["hours"][schedHour][round15(schedMin)]["scheduled"] += 1
             arrSched += 1
         else:continue
+
+        if "departure" in each.keys():
+            if "airport" in each["departure"].keys():
+                if "iata" in each["departure"]["airport"].keys() and "name" in each["departure"]["airport"].keys():
+                    if each["departure"]["airport"]["name"] in origin.keys():
+                        origin["{} / {}".format(each["departure"]["airport"]["iata"],each["departure"]["airport"]["name"])] += 1
+                    else:
+                        origin["{} / {}".format(each["departure"]["airport"]["iata"],each["departure"]["airport"]["name"])] = 1
         
         if "airline" in each.keys():
             if each["airline"]["name"] == 'Unknown/Private owner':
@@ -171,19 +170,16 @@ def logFlights():
                 else:
                     aircraftListArr["Other"] += 1
 
-
-    dayDepInfo = {"totals":{"scheduledFlights":depSched,"numCanceled": cancDep,"airlineCounts":airlineListDep,"aircraftCounts":aircraftListDep},"timeInfo":timeInfoDep}
-    dayArrInfo = {"totals":{"scheduledFlights":arrSched,"numCanceled": cancArr,"airlineCounts":airlineListArr,"aircraftCounts":aircraftListArr},"timeInfo":timeInfoArr}
+    #Saves each collection of data as a dictionry then saves as a respective JSON
+    dayDepInfo = {"totals":{"scheduledFlights":depSched,"numCanceled": cancDep,"airlineCounts":airlineListDep,"aircraftCounts":aircraftListDep, "destinationCounts":destination},"timeInfo":timeInfoDep}
+    dayArrInfo = {"totals":{"scheduledFlights":arrSched,"numCanceled": cancArr,"airlineCounts":airlineListArr,"aircraftCounts":aircraftListArr, "originCounts":origin},"timeInfo":timeInfoArr}
 
     with open('deps.json', 'w') as fp:
         json.dump(dayDepInfo, fp, sort_keys=False, indent=4)
     with open('arrs.json', 'w') as fp:
         json.dump(dayArrInfo, fp, sort_keys=False, indent=4)
     
-##schedule.every().day.at("08:00").do(logFlights)
-##while True:
-    ##schedule.run_pending()
-    ##time.sleep(60)
-        
+
+
 if __name__ == "__main__":
     logFlights()
