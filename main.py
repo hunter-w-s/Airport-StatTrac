@@ -1,19 +1,58 @@
 from datetime import datetime, timedelta
-import sys, time, requests, json, schedule
+import sys, time, requests, json, schedule, config
 
 #sys.path = ['/home/hwstingel/SeniorProject/Airport-StatTrac', '/usr/lib/python39.zip', '/usr/lib/python3.9', '/usr/lib/python3.9/lib-dynload', '/home/hwstingel/.local/lib/python3.9/site-packages', '/usr/local/lib/python3.9/dist-packages', '/usr/lib/python3/dist-packages', '/usr/lib/python3.9/dist-packages']
 
 querystring = {"withLeg":"true","withCancelled":"true","withCodeshared":"true","withCargo":"true","withPrivate":"true","withLocation":"false"}
-headers = {"X-RapidAPI-Key": "KEY","X-RapidAPI-Host": "aerodatabox.p.rapidapi.com"}
+headers = {"X-RapidAPI-Key": config.apiKey,"X-RapidAPI-Host": "aerodatabox.p.rapidapi.com"}
 
-#Define Storage Lists
-airport = 'KCLT'
+#Define Constants
+airport = config.airportICAO
 
 startTimeList = ['00','08','16']
 toTimeList = ['08','16','00']
 
+cancDep = 0
+cancArr = 0
+    
+aircraftListDep = {"Boeing":0,"Airbus":0,"Canadair Regional":0,"Embraer":0,"Other":0}
+aircraftListArr = aircraftListDep
+airlineListDep = {}
+airlineListArr = {}
+timeInfoDep = {"dataDate":yesterday,"hours":{"00":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "01":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "02":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "03":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "04":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "05":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "06":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "07":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "08":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "09":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "10":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "11":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "12":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "13":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "14":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "15":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "16":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "17":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "18":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "19":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "20":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "21":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "22":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 "23":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+                                                 }}
+
+timeInfoArr = timeInfoDep
 
 
+depSched = 0
+arrSched = 0
+
+
+#Primary Use - Round minute input down to the nearest 15 for cataloging
 def round15(mins):
     if mins == "00":
         return "00"
@@ -27,15 +66,17 @@ def round15(mins):
         return "45"
         
 
-
-
-
-
+#Main Execution function
 def logFlights():
-    today = (datetime.now() - timedelta(3)).strftime('%Y-%m-%d')
-    yesterday = (datetime.now() - timedelta(4)).strftime('%Y-%m-%d')
+
+    #Gets the days for logging
+    today = (datetime.now() - timedelta(config.daysAgo-1)).strftime('%Y-%m-%d')
+    yesterday = (datetime.now() - timedelta(config.daysAgo)).strftime('%Y-%m-%d')
+
+    #Creates URL list to store various filled out URLs
     urlList = []
-    
+
+    #Generates URLs to Get data from
     for x in range(3):
         if x == 2:
             urlList.append("https://aerodatabox.p.rapidapi.com/flights/airports/icao/{}/{}T{}:00/{}T{}:00".format(airport,yesterday,startTimeList[x],today,toTimeList[x]))
@@ -44,75 +85,15 @@ def logFlights():
     
     fullListDep = []
     fullListArr = []
-    
+
+    # Gets information from ABD and combines into 1 list
     for each in urlList:
         response = requests.request("GET", each, headers=headers, params=querystring)
         fullListDep = fullListDep + response.json()['departures']
         fullListArr = fullListArr + response.json()['arrivals']
     
     
-    cancDep = 0
-    cancArr = 0
     
-    aircraftListDep = {"Boeing":0,"Airbus":0,"Canadair Regional":0,"Embraer":0,"Other":0}
-    aircraftListArr = {"Boeing":0,"Airbus":0,"Canadair Regional":0,"Embraer":0,"Other":0}
-    airlineListDep = {}
-    airlineListArr = {}
-    timeInfoDep = {"dataDate":yesterday,"hours":{"00":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "01":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "02":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "03":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "04":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "05":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "06":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "07":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "08":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "09":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "10":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "11":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "12":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "13":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "14":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "15":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "16":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "17":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "18":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "19":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "20":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "21":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "22":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "23":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 }}
-
-    timeInfoArr = {"dataDate":yesterday,"hours":{"00":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "01":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "02":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "03":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "04":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "05":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "06":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "07":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "08":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "09":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "10":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "11":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "12":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "13":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "14":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "15":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "16":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "17":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "18":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "19":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "20":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "21":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "22":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 "23":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
-                                                 }}
-
-
-    depSched = 0
-    arrSched = 0
 
     
     for each in fullListDep:
@@ -196,10 +177,9 @@ def logFlights():
         json.dump(dayArrInfo, fp, sort_keys=False, indent=4)
     
 ##schedule.every().day.at("08:00").do(logFlights)
-logFlights()
 ##while True:
     ##schedule.run_pending()
     ##time.sleep(60)
         
-        
-        
+if __name__ == "__main__":
+    logFLights()
