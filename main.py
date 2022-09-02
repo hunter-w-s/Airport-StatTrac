@@ -7,19 +7,45 @@ querystring = {"withLeg":"true","withCancelled":"true","withCodeshared":"true","
 headers = {"X-RapidAPI-Key": config.apiKey,"X-RapidAPI-Host": "aerodatabox.p.rapidapi.com"}
 
 #Define Constants
-airport = config.airportICAO
 
-startTimeList = ['00','08','16']
-toTimeList = ['08','16','00']
 
-cancDep = 0
-cancArr = 0
+
+
+
+
+#Primary Use - Round minute input down to the nearest 15 for cataloging
+def round15(mins):
+    if mins == "00":
+        return "00"
+    elif int(mins) <= 14:
+        return "00"
+    elif int(mins) <= 29:
+        return "15"
+    elif int(mins) <= 44:
+        return "30"
+    else:
+        return "45"
+        
+
+#Main Execution function
+def logFlights():
+
+    airport = config.airportICAO
+
+    startTimeList = ['00','08','16']
+    toTimeList = ['08','16','00']
+
+    today = (datetime.now() - timedelta(config.daysAgo-1)).strftime('%Y-%m-%d')
+    yesterday = (datetime.now() - timedelta(config.daysAgo)).strftime('%Y-%m-%d')
+
+    cancDep = 0
+    cancArr = 0
     
-aircraftListDep = {"Boeing":0,"Airbus":0,"Canadair Regional":0,"Embraer":0,"Other":0}
-aircraftListArr = aircraftListDep
-airlineListDep = {}
-airlineListArr = {}
-timeInfoDep = {"dataDate":yesterday,"hours":{"00":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
+    aircraftListDep = {"Boeing":0,"Airbus":0,"Canadair Regional":0,"Embraer":0,"Other":0}
+    aircraftListArr = aircraftListDep
+    airlineListDep = {}
+    airlineListArr = {}
+    timeInfoDep = {"dataDate":yesterday,"hours":{"00":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
                                                  "01":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
                                                  "02":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
                                                  "03":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
@@ -45,33 +71,11 @@ timeInfoDep = {"dataDate":yesterday,"hours":{"00":{"00":{"scheduled":0,"numCanc"
                                                  "23":{"00":{"scheduled":0,"numCanc":0},"15":{"scheduled":0,"numCanc":0},"30":{"scheduled":0,"numCanc":0},"45":{"scheduled":0,"numCanc":0}},
                                                  }}
 
-timeInfoArr = timeInfoDep
+    timeInfoArr = timeInfoDep
 
 
-depSched = 0
-arrSched = 0
-
-
-#Primary Use - Round minute input down to the nearest 15 for cataloging
-def round15(mins):
-    if mins == "00":
-        return "00"
-    elif int(mins) <= 14:
-        return "00"
-    elif int(mins) <= 29:
-        return "15"
-    elif int(mins) <= 44:
-        return "30"
-    else:
-        return "45"
-        
-
-#Main Execution function
-def logFlights():
-
-    #Gets the days for logging
-    today = (datetime.now() - timedelta(config.daysAgo-1)).strftime('%Y-%m-%d')
-    yesterday = (datetime.now() - timedelta(config.daysAgo)).strftime('%Y-%m-%d')
+    depSched = 0
+    arrSched = 0
 
     #Creates URL list to store various filled out URLs
     urlList = []
@@ -94,7 +98,7 @@ def logFlights():
     
     
     
-
+    
     
     for each in fullListDep:
 
@@ -182,4 +186,4 @@ def logFlights():
     ##time.sleep(60)
         
 if __name__ == "__main__":
-    logFLights()
+    logFlights()
